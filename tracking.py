@@ -4,9 +4,7 @@ import sqlite3
 from datetime import datetime
 import math
 
-# -----------------------------------
-# Database Setup (Enhanced)
-# -----------------------------------
+
 conn = sqlite3.connect('object_tracking.db')
 c = conn.cursor()
 c.execute('''
@@ -25,41 +23,29 @@ c.execute('''
 ''')
 conn.commit()
 
-# -----------------------------------
-# Load YOLO Model and Classes
-# -----------------------------------
-# Make sure these files are in your working directory.
+
+
 yolo_net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
 with open("coco.names", "r") as f:
     classes = [line.strip() for line in f.readlines()]
 
-# -----------------------------------
-# Camera Setup
-# -----------------------------------
+
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     raise Exception("Could not open video device")
 
-# -----------------------------------
-# Background Subtractor for Motion Detection
-# -----------------------------------
 fgbg = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=16, detectShadows=False)
 
-# -----------------------------------
-# Object Tracking Variables
-# -----------------------------------
 tracked_objects = {}  # key: object_id, value: dictionary with tracking info
 next_object_id = 0
 
-# Font settings for overlay text
+
 font = cv2.FONT_HERSHEY_SIMPLEX
 font_scale = 0.5
 font_color = (0, 255, 0)
 thickness = 1
 
-# -----------------------------------
-# Function to Calculate Metrics
-# -----------------------------------
+
 def calculate_metrics(obj, current_centroid, current_time):
     """
     Given the previous object info and the current centroid,
@@ -79,9 +65,6 @@ def calculate_metrics(obj, current_centroid, current_time):
     angle = (angle + 360) % 360  # normalize to 0-360°
     return speed, acceleration, angle, distance
 
-# -----------------------------------
-# Main Loop for Processing Frames
-# -----------------------------------
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -89,9 +72,7 @@ while True:
 
     current_time = datetime.now()
     
-    # -----------------------------------
-    # YOLO Object Detection
-    # -----------------------------------
+
     height, width = frame.shape[:2]
     blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416), swapRB=True, crop=False)
     yolo_net.setInput(blob)
@@ -133,13 +114,10 @@ while True:
             x, y, w, h = box
             label = classes[class_ids[i]]
             yolo_detections.append((label, (x, y, w, h)))
-            # (Optional) Draw YOLO detection boxes in magenta
+            # Draw YOLO detection boxes in magenta
             cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 255), 2)
             cv2.putText(frame, label, (x, y-10), font, 0.5, (255, 0, 255), 2)
-    
-    # -----------------------------------
-    # Motion Detection using Background Subtraction
-    # -----------------------------------
+  
     fgmask = fgbg.apply(frame)
     thresh = cv2.threshold(fgmask, 127, 255, cv2.THRESH_BINARY)[1]
     kernel = np.ones((5, 5), np.uint8)
@@ -159,9 +137,7 @@ while True:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
         cv2.circle(frame, centroid, 4, (0, 0, 255), -1)
     
-    # -----------------------------------
-    # Update Tracked Objects Based on Motion
-    # -----------------------------------
+
     updated_ids = []
     for item in current_centroids:
         centroid, bbox = item
@@ -220,9 +196,7 @@ while True:
     for oid in lost_ids:
         del tracked_objects[oid]
         
-    # -----------------------------------
-    # Update Object Names via YOLO Detections (if centroid lies within a YOLO box)
-    # -----------------------------------
+
     for oid, obj in tracked_objects.items():
         centroid = obj['last_centroid']
         for detection in yolo_detections:
@@ -231,9 +205,7 @@ while True:
                 tracked_objects[oid]['object_name'] = label
                 break  # assign the first matching label
     
-    # -----------------------------------
-    # Overlay Information and Angle Lines on the Frame
-    # -----------------------------------
+
     current_time_str = current_time.strftime("%Y-%m-%d %H:%M:%S")
     cv2.putText(frame, f"Current Time: {current_time_str}", (10, 20), font, 0.6, (0, 255, 255), 2)
     
@@ -254,9 +226,7 @@ while True:
         cv2.putText(frame, info, (10, y_offset), font, font_scale, font_color, thickness, cv2.LINE_AA)
         y_offset += 20
 
-    # -----------------------------------
-    # Display Windows
-    # -----------------------------------
+
     cv2.imshow('Object Tracking', frame)
     # (Optional) Show the threshold mask for debugging
     cv2.imshow('Threshold', thresh)
@@ -265,9 +235,6 @@ while True:
     if cv2.waitKey(1) == 27:
         break
 
-# -----------------------------------
-# Cleanup
-# -----------------------------------
 conn.commit()
 cap.release()
 cv2.destroyAllWindows()
